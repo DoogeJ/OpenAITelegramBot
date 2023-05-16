@@ -13,7 +13,7 @@ You need to request an OpenAI API Token here: [https://platform.openai.com/accou
 You need to create a new 'Telegram bot' with [@botfather](https://t.me/Botfather).
 
 ### Installation
-For Windows users, simply download the latest release-executable and create an `appsettings.json`-file to configure the application. If you prefer to build from source or use another operating system, you will need the .NET 7 SDK. Download or clone the repository into a folder, create your `appsettings.json` and simply type `dotnet run`.
+For Windows users, simply download the latest release-executable and create an `appsettings.json`-file to configure the application. Then run `OpenAITelegramBot.exe` to start it. If the application immediately closes, run from a command prompt window to see potential error output. If you prefer to build from source or use another operating system, you will need the .NET 7 SDK. Download or clone the repository into a folder, create your `appsettings.json` and simply type `dotnet run`.
 
 ## Configuration
 All configuration is done in the `appsettings.json`-file. An example is included in [appsettings.template.json](appsettings.template.json) (copy or rename to `appsettings.json`). This is a simple textfile that you can open and edit with many text editors, like Microsoft Notepad.
