@@ -3,6 +3,8 @@ This is a simple and easy to configure 'ChatGPT' Telegram bot for anyone who wan
 
 This bot uses the OpenAI API and a GPT model of your choice from [https://platform.openai.com/docs/models](https://platform.openai.com/docs/models).
 
+Once the bot is running you can use the `/status`-command to get some configuration and memory information.
+
 ![An example of the bot running](james.png)
 
 ## Requirements

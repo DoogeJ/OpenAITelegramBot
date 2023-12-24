@@ -108,6 +108,22 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         while (prompts.Count > 1 && prompts[1].stamp < (DateTime.UtcNow).AddMinutes(settings.Connections.OpenAIAPI.MinutesToKeep * -1)) prompts.RemoveAt(1);
         while (prompts.Sum(p => p.content.Length) / 3 > settings.Connections.OpenAIAPI.TokensToKeep) prompts.RemoveAt(1);
 
+        if (prompt.StartsWith("/status"))
+        {
+            TimeSpan bootTime = DateTime.UtcNow.Subtract(prompts[0].stamp);
+            var tokensInMemory = prompts.Count > 1 ? (prompts.Sum(p => p.content.Length) - prompts[0].content.Length) / 3 : 0;
+            var messagesInMemory = prompts.Count - 1;
+            TimeSpan oldestMessageTime = prompts.Count > 1 ? DateTime.UtcNow.Subtract(prompts[1].stamp) : TimeSpan.Zero;
+
+            string statusMessage = $"ℹ️ This is <b>{settings.Personality.Name}</b>, using <b><a href=\"https://github.com/DoogeJ/OpenAITelegramBot/\">OpenAITelegramBot</a></b> and the <code>{settings.Connections.OpenAIAPI.Model}</code>-model.{Environment.NewLine}{Environment.NewLine}" +
+                                   $"⚙️ I am configured to keep <b>~{settings.Connections.OpenAIAPI.TokensToKeep} tokens</b> or <b>~{settings.Connections.OpenAIAPI.MinutesToKeep} minutes</b> of conversation history.{Environment.NewLine}{Environment.NewLine}" +
+                                   $"{(prompts.Count == 1 ? "💭 I don't currently have any messages in memory." : $"💭 I'm currently keeping <b>~{tokensInMemory} tokens</b> and <b>{messagesInMemory} messages</b> in memory.{Environment.NewLine}⏳ My oldest message is from <b>{oldestMessageTime.Minutes}</b> minutes ago.")}{Environment.NewLine}{Environment.NewLine}" +
+                                   $"🔆 I was last restarted <b>{bootTime.ToString("%d")} days, {bootTime.ToString("%h")} hours and {bootTime.ToString("%m")} minutes</b> ago.";
+
+            await bot.SendTextMessageAsync(chatId: chatId, text: statusMessage, replyToMessageId: update.Message.MessageId, cancellationToken: ct, disableWebPagePreview: true, parseMode: ParseMode.Html);
+            return;
+        }
+
         prompts.Add((Role.User, $"{update.Message.From!.FirstName} says: {prompt}", DateTime.UtcNow));
 
         ChatRequest chatRequest = new ChatRequest(prompts.Select(p => new OpenAI.Chat.Message(p.role, p.content)), model, user: update.Message.From?.FirstName);
