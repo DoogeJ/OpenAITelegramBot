@@ -103,7 +103,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         Console.WriteLine($"< {update.Message.From?.FirstName}: {update.Message.Text}");
 
         //we're going to answer! Send a typing indicator...
-        await bot.SendChatActionAsync(update.Message.Chat.Id, ChatAction.Typing, ct);
+        await bot.SendChatActionAsync(update.Message.Chat.Id, ChatAction.Typing, null, ct);
 
         while (prompts.Count > 1 && prompts[1].stamp < (DateTime.UtcNow).AddMinutes(settings.Connections.OpenAIAPI.MinutesToKeep * -1)) prompts.RemoveAt(1);
         while (prompts.Sum(p => p.content.Length) / 3 > settings.Connections.OpenAIAPI.TokensToKeep) prompts.RemoveAt(1);
