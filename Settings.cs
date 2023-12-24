@@ -22,6 +22,7 @@ public sealed class OpenAIAPI
     public required string Token { get; set; }
     public required int MinutesToKeep { get; set; }
     public required int TokensToKeep { get; set; }
+    public required string Model { get; set; }
 }
 
 public sealed class TelegramAPI

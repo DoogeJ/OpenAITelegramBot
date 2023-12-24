@@ -1,7 +1,7 @@
 # OpenAITelegramBot
 This is a simple and easy to configure 'ChatGPT' Telegram bot for anyone who wants to use or experiment with OpenAI functionality.
 
-This bot uses '`gpt-3.5-turbo`', which is at the time of writing the current 'latest and greatest' public model.
+This bot uses the OpenAI API and a GPT model of your choice from [https://platform.openai.com/docs/models](https://platform.openai.com/docs/models).
 
 ![An example of the bot running](james.png)
 
@@ -34,6 +34,7 @@ This section contains all configuration parameters to connect to both OpenAI and
 * Token: The API token from [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys).
 * MinutesToKeep: The amount of time previous messages stay in the bots 'memory'. Recommended `10`-`60`.
 * TokensToKeep: The amount of estimated tokens to keep in the bots 'memory'. 3 characters roughly equal 1 token. The amount of tokens used per request defines the processing time and cost. Recommended `2048`.
+* Model: The model to use. This should be the model name as it appears in the [OpenAI API documentation](https://platform.openai.com/docs/models). Current recommended is `gpt-4` (more capable) or `gpt-3.5-turbo` (faster and cheaper).
 
 #### TelegramAPI
 * Token: The API token from [@botfather](https://t.me/Botfather).
