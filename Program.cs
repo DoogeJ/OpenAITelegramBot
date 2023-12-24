@@ -132,7 +132,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         prompts.Add((Role.Assistant, answer, DateTime.UtcNow));
         Console.WriteLine($"> {settings.Personality.Name}: {answer}");
 
-        await bot.SendTextMessageAsync(chatId, answer, replyToMessageId: update.Message.MessageId, cancellationToken: ct, parseMode: ParseMode.Html);
+        await bot.SendTextMessageAsync(chatId, answer, replyToMessageId: update.Message.MessageId, cancellationToken: ct);
     }
     catch (Exception ex)
     {
