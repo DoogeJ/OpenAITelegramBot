@@ -17,7 +17,7 @@ Console.Title = settings.Personality.Name;
 //initialize OpenAI
 Model model = Model.GPT3_5_Turbo;
 OpenAIClient api = new OpenAIClient(settings.Connections.OpenAIAPI.Token);
-var prompts = new List<(OpenAI.Chat.Role role, string content, DateTime stamp)>
+var prompts = new List<(OpenAI.Role role, string content, DateTime stamp)>
 {
     (Role.System, settings.Personality.Prompt, DateTime.UtcNow)
 };
