@@ -82,7 +82,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
         {
             //private messages don't need namecalling
         }
-        else if (!settings.Personality.RespondToName || !prompt.Contains(settings.Personality.Name, StringComparison.OrdinalIgnoreCase))
+        else if (!settings.Personality.RespondToName && update.Message.ReplyToMessage?.From?.Id != me.Id && !prompt.StartsWith(settings.Connections.TelegramAPI.Username, StringComparison.OrdinalIgnoreCase) || !prompt.Contains(settings.Personality.Name, StringComparison.OrdinalIgnoreCase) && update.Message.ReplyToMessage?.From?.Id != me.Id)
         {
             //ignore this message
             return;
