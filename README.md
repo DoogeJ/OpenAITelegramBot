@@ -37,6 +37,7 @@ This section contains all configuration parameters to connect to both OpenAI and
 * MinutesToKeep: The amount of time previous messages stay in the bots 'memory'. Recommended `10`-`60`.
 * TokensToKeep: The amount of estimated tokens to keep in the bots 'memory'. 3 characters roughly equal 1 token. The amount of tokens used per request defines the processing time and cost. Recommended `2048`.
 * Model: The model to use. This should be the model name as it appears in the [OpenAI API documentation](https://platform.openai.com/docs/models). Current recommended is `gpt-4` (more capable) or `gpt-3.5-turbo` (faster and cheaper).
+* VisionSupport: This setting defines if the selected OpenAI model has Vision support (and if you want it enabled in the bot). With Vision, OpenAI will try to parse images. Possible values are '`true`' and '`false`'.
 
 #### TelegramAPI
 * Token: The API token from [@botfather](https://t.me/Botfather).
@@ -44,3 +45,4 @@ This section contains all configuration parameters to connect to both OpenAI and
 * AllowedChats: An array of Chat ID's to allow. It is **strongly** recommended to restrict the bot to a single private or group chat for both privacy- and consistency-reasons, because all messages are combined in a single conversation. This value type is a so-called 'long array' and entries can be comma-separated. Valid examples are: `[-1001233544581, 434502930]` or `[-1001233544581]` or `[null]` when not configured (every chat is allowed). To get the ID of a user group chat, you can use various options, for example [@RawDataBot](https://t.me/RawDataBot) (no affiliation, don't forget to remove this from your group after getting the ID).
 * MessageLengthLimit: The maximum length of a message to accept from a user. Keep in mind that long messages have an effect on the amount of used tokens, and thus the cost and length of bot 'memory'. Recommended `1024` or lower.
 * AllowPrivateMessages: This defines if the bot will accept private messages. Possible values are '`true`' and '`false`'. It is **strongly** recommended to only use this for private bots, and have your User ID in the AllowedChats list.
+* PhotoQuality: This defines the resolution of the picture send to OpenAI when using `VisionSupport`. Possible values are `Low`, `Medium`, and `High`. Keep in mind that higher quality images will use up more tokens, but using a lower quality might make text illegible.

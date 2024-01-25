@@ -23,6 +23,7 @@ public sealed class OpenAIAPI
     public required int MinutesToKeep { get; set; }
     public required int TokensToKeep { get; set; }
     public required string Model { get; set; }
+    public required bool VisionSupport { get; set; }
 }
 
 public sealed class TelegramAPI
@@ -32,4 +33,5 @@ public sealed class TelegramAPI
     public required long[] AllowedChats { get; set; }
     public required int MessageLengthLimit { get; set; }
     public required bool AllowPrivateMessages { get; set; }
+    public required PhotoQuality PhotoQuality { get; set; }
 }

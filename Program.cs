@@ -17,9 +17,14 @@ Console.Title = settings.Personality.Name;
 //initialize OpenAI
 Model model = new(settings.Connections.OpenAIAPI.Model, "openai");
 OpenAIClient api = new OpenAIClient(settings.Connections.OpenAIAPI.Token);
-var prompts = new List<(OpenAI.Role role, string content, DateTime stamp)>
+
+//call with just the system prompt to determine prompt token cost
+ChatRequest chatRequest = new ChatRequest(new List<OpenAI.Chat.Message> { new OpenAI.Chat.Message(Role.System, settings.Personality.Prompt) }, model: model, maxTokens: settings.Connections.OpenAIAPI.TokensToKeep);
+ChatResponse result = await api.ChatEndpoint.GetCompletionAsync(chatRequest);
+
+var prompts = new List<(OpenAI.Role role, dynamic content, DateTime stamp, int tokens)>
 {
-    (Role.System, settings.Personality.Prompt, DateTime.UtcNow)
+    (Role.System, settings.Personality.Prompt, DateTime.UtcNow, (int)result.Usage.PromptTokens!)
 };
 
 //initialize Telegram
@@ -61,13 +66,21 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     {
         var msg = update.Message ?? update.EditedMessage ?? update.ChannelPost ?? update.EditedChannelPost;
         if (update.EditedMessage != null) update.Message = update.EditedMessage;
-        if (update.Message?.Type != MessageType.Text) return;
+        if (!(update.Message?.Type == MessageType.Text || (settings.Connections.OpenAIAPI.VisionSupport && update.Message?.Type == MessageType.Photo))) return;
 
         // check if allowed chat
-        if (settings.Connections.TelegramAPI.AllowedChats != null && settings.Connections.TelegramAPI.AllowedChats.Count() > 0 && !settings.Connections.TelegramAPI.AllowedChats.Contains(update.Message.Chat.Id)) return;
-        if (update.Message.Chat.Type == ChatType.Private && !settings.Connections.TelegramAPI.AllowPrivateMessages) return;
-        long chatId = update.Message.Chat.Id;
-        string prompt = update.Message.Text!;
+        if (settings.Connections.TelegramAPI.AllowedChats != null && settings.Connections.TelegramAPI.AllowedChats.Count() > 0 && !settings.Connections.TelegramAPI.AllowedChats.Contains(update.Message!.Chat.Id)) return;
+        if (update.Message!.Chat.Type == ChatType.Private && !settings.Connections.TelegramAPI.AllowPrivateMessages) return;
+        long chatId = update.Message!.Chat.Id;
+        string prompt = "";
+        if (update.Message!.Type == MessageType.Text)
+        {
+            prompt = update.Message!.Text!;
+        }
+        else
+        {
+            prompt = update.Message!.Caption!;
+        }
 
         if (prompt.StartsWith(settings.Connections.TelegramAPI.Username, StringComparison.OrdinalIgnoreCase))
         {
@@ -88,7 +101,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             return;
         }
 
-        if (update.Message.Text!.Length > settings.Connections.TelegramAPI.MessageLengthLimit)
+        if (prompt.Length > settings.Connections.TelegramAPI.MessageLengthLimit)
         {
             Telegram.Bot.Types.Message sentMessage = await botClient.SendTextMessageAsync(
                                chatId: chatId,
@@ -100,18 +113,21 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             return;
         }
 
-        Console.WriteLine($"< {update.Message.From?.FirstName}: {update.Message.Text}");
+        Console.WriteLine($"< {update.Message.From?.FirstName}: {prompt}");
 
         //we're going to answer! Send a typing indicator...
         await bot.SendChatActionAsync(update.Message.Chat.Id, ChatAction.Typing, null, ct);
 
+        // clean up to old messages
         while (prompts.Count > 1 && prompts[1].stamp < (DateTime.UtcNow).AddMinutes(settings.Connections.OpenAIAPI.MinutesToKeep * -1)) prompts.RemoveAt(1);
-        while (prompts.Sum(p => p.content.Length) / 3 > settings.Connections.OpenAIAPI.TokensToKeep) prompts.RemoveAt(1);
+
+        // clean up messages when over token limit
+        while (prompts.Sum(p => p.tokens) > settings.Connections.OpenAIAPI.TokensToKeep) prompts.RemoveAt(1);
 
         if (prompt.StartsWith("/status"))
         {
             TimeSpan bootTime = DateTime.UtcNow.Subtract(prompts[0].stamp);
-            var tokensInMemory = prompts.Count > 1 ? (prompts.Sum(p => p.content.Length) - prompts[0].content.Length) / 3 : 0;
+            var tokensInMemory = prompts.Count > 1 ? (prompts.Sum(p => p.tokens) - prompts[0].tokens) : 0;
             var messagesInMemory = prompts.Count - 1;
             TimeSpan oldestMessageTime = prompts.Count > 1 ? DateTime.UtcNow.Subtract(prompts[1].stamp) : TimeSpan.Zero;
 
@@ -124,15 +140,53 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
             return;
         }
 
-        prompts.Add((Role.User, $"{update.Message.From!.FirstName} says: {prompt}", DateTime.UtcNow));
+        if (update.Message.Type == MessageType.Photo)
+        {
+            // get average resolution photo
+            PhotoSize photo = update.Message.Photo![(int)settings.Connections.TelegramAPI.PhotoQuality];
+            Console.WriteLine($"< {update.Message.From?.FirstName} submitted an image of size: {photo.Height}x{photo.Width}. (Selected quality is {settings.Connections.TelegramAPI.PhotoQuality})");
 
-        ChatRequest chatRequest = new ChatRequest(prompts.Select(p => new OpenAI.Chat.Message(p.role, p.content)), model, user: update.Message.From?.FirstName);
+            // create MemoryStream to receive a photo
+            await using var memoryStream = new MemoryStream();
 
-        ChatResponse result = await api.ChatEndpoint.GetCompletionAsync(chatRequest);
+            // download photo
+            await botClient.GetInfoAndDownloadFileAsync(photo.FileId, memoryStream, ct);
+
+            // reset MemoryStream index
+            memoryStream.Seek(0, SeekOrigin.Begin);
+
+            // convert received image to Base64
+            byte[] image = memoryStream.ToArray();
+            string base64ImageRepresentation = Convert.ToBase64String(image);
+            memoryStream.Dispose();
+
+            // send image prompt to OpenAI
+            chatRequest = new ChatRequest(new List<OpenAI.Chat.Message> {new OpenAI.Chat.Message(Role.User, new List<Content>
+            {
+                prompt,
+                new ImageUrl($"data:image/jpeg;base64,{base64ImageRepresentation}", settings.Connections.TelegramAPI.PhotoQuality == PhotoQuality.Low ? ImageDetail.Low : ImageDetail.High)
+            })}, model, user: update.Message.From?.FirstName, maxTokens: settings.Connections.OpenAIAPI.TokensToKeep);
+
+            result = await api.ChatEndpoint.GetCompletionAsync(chatRequest);
+
+            prompts.Add((Role.User, new List<Content>
+            {
+                prompt,
+                new ImageUrl($"data:image/jpeg;base64,{base64ImageRepresentation}", ImageDetail.Auto)
+            }, DateTime.UtcNow, (int)result.Usage.PromptTokens!));
+        }
+        else
+        {
+            // send text prompt to OpenAI
+            chatRequest = new ChatRequest(new List<OpenAI.Chat.Message> { new OpenAI.Chat.Message(Role.User, prompt) }, model, user: update.Message.From?.FirstName, maxTokens: settings.Connections.OpenAIAPI.TokensToKeep);
+            result = await api.ChatEndpoint.GetCompletionAsync(chatRequest);
+
+            prompts.Add((Role.User, $"{update.Message.From!.FirstName} says: {prompt}", DateTime.UtcNow, (int)result.Usage.PromptTokens!));
+        }
 
         if (result.FirstChoice.Message == null || result.FirstChoice.Message == "")
         {
-            prompts.Add((Role.Assistant, "Sorry, I do not know an answer to this. Perhaps try asking differently.", DateTime.UtcNow));
+            prompts.Add((Role.Assistant, "Sorry, I do not know an answer to this. Perhaps try asking differently.", DateTime.UtcNow, 16));
             Telegram.Bot.Types.Message sentMessage = await botClient.SendTextMessageAsync(
                                chatId: chatId,
                                text: "Sorry, I do not know an answer to this. Perhaps try asking differently.",
@@ -145,7 +199,7 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
 
         string answer = result.FirstChoice.Message!.ToString().Trim();
         answer = answer.Replace($"{settings.Personality.Name} says: ", "");
-        prompts.Add((Role.Assistant, answer, DateTime.UtcNow));
+        prompts.Add((Role.Assistant, answer, DateTime.UtcNow, (int)result.Usage.CompletionTokens!));
         Console.WriteLine($"> {settings.Personality.Name}: {answer}");
 
         await bot.SendTextMessageAsync(chatId, answer, replyToMessageId: update.Message.MessageId, cancellationToken: ct);
@@ -154,4 +208,11 @@ async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, Cancellation
     {
         Console.WriteLine($"While handling {update.Message?.Text}: {ex}");
     }
+}
+
+public enum PhotoQuality
+{
+    Low,
+    Medium,
+    High
 }
